@@ -56,6 +56,10 @@ class Vegas : public CCC {
 
         // TODO: Initialize the additional variables that you declared
 
+        m_dAlpha = 15.0 * 1024.0;
+        m_dBeta = 40.0 * 1024.0;
+        m_dLinearIncreaseFactor = 5.0 / 1024.0;
+
         // Complete your implementation above this line
         // *********************************************************************
     }
@@ -111,6 +115,22 @@ class Vegas : public CCC {
 
         // TODO: Implement Vegas::onACK()
 
+        if ((m_dBaseRTT > 0) && (m_dCurrentRTT > 0)) {
+            double cwndBytes = m_dCWndSize * static_cast<double>(m_iMSS);
+            double expected = (cwndBytes * 1000.0) / m_dBaseRTT;
+            double bytesInFlight = static_cast<double>(m_iSndCurrSeqNo - ack) * m_iMSS;
+            if (bytesInFlight < 0) {
+                bytesInFlight = 0;
+            } // if
+            double actual = (bytesInFlight * 1000.0) / m_dCurrentRTT;
+            double difference = expected - actual;
+            if (difference < m_dAlpha) {
+                m_dCWndSize += (m_dLinearIncreaseFactor * difference);
+            } else if (difference > m_dBeta) {
+                m_dCWndSize -= (m_dLinearIncreaseFactor * difference);
+            } // if
+        } // if
+
         // Complete your implementation above this line
         // *********************************************************************
 
@@ -135,6 +155,10 @@ class Vegas : public CCC {
     // Add additional variables for your implementation below.
 
     // TODO: Declare additional variables required for your Vegas implementation
+
+    double m_dAlpha;
+    double m_dBeta;
+    double m_dLinearIncreaseFactor;
 
     // Complete your implementation above this line
     // *************************************************************************
