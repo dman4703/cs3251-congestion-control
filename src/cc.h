@@ -56,9 +56,12 @@ class Vegas : public CCC {
 
         // TODO: Initialize the additional variables that you declared
 
-        m_dAlpha = 15.0 * 1024.0;
-        m_dBeta = 40.0 * 1024.0;
-        m_dLinearIncreaseFactor = 5.0 / 1024.0;
+        m_dAlpha = 2.0;
+        m_dBeta = 4.0;
+        m_dLinearIncreaseFactor = 1.0;
+        m_dAckedSegments = 0.0;
+        m_bHaveLastAck = false;
+        m_iLastAckNumber = 0;
 
         // Complete your implementation above this line
         // *********************************************************************
@@ -115,20 +118,44 @@ class Vegas : public CCC {
 
         // TODO: Implement Vegas::onACK()
 
-        if ((m_dBaseRTT > 0) && (m_dCurrentRTT > 0)) {
-            double cwndBytes = m_dCWndSize * static_cast<double>(m_iMSS);
-            double expected = (cwndBytes * 1000.0) / m_dBaseRTT;
-            double bytesInFlight = static_cast<double>(m_iSndCurrSeqNo - ack) * m_iMSS;
-            if (bytesInFlight < 0) {
-                bytesInFlight = 0;
+        if (!m_bHaveLastAck) {
+            m_iLastAckNumber = ack;
+            m_bHaveLastAck = true;
+            m_dAckedSegments = 0.0;
+            if (m_dCWndSize < 2.0) {
+                m_dCWndSize = 2.0;
             } // if
-            double actual = (bytesInFlight * 1000.0) / m_dCurrentRTT;
-            double difference = expected - actual;
-            if (difference < m_dAlpha) {
-                m_dCWndSize += (m_dLinearIncreaseFactor * difference);
-            } else if (difference > m_dBeta) {
-                m_dCWndSize -= (m_dLinearIncreaseFactor * difference);
+            return;
+        } // if
+
+        const int ackAdvance = ack - m_iLastAckNumber;
+        m_iLastAckNumber = ack;
+
+        if (ackAdvance <= 0) {
+            if (m_dCWndSize < 2.0) {
+                m_dCWndSize = 2.0;
             } // if
+            return;
+        } // if
+        m_dAckedSegments += static_cast<double>(ackAdvance);
+        if (m_dAckedSegments < m_dCWndSize) {
+            if (m_dCWndSize < 2.0) {
+                m_dCWndSize = 2.0;
+            } // if
+            return;
+        } // if
+        const double windowAtSample = m_dCWndSize;
+        if (m_dCurrentRTT > 0.0 && m_dBaseRTT > 0.0) {
+            const double diff = (windowAtSample * (m_dCurrentRTT - m_dBaseRTT)) / m_dCurrentRTT;
+            if (diff < m_dAlpha) {
+                m_dCWndSize += m_dLinearIncreaseFactor;
+            } else if (diff > m_dBeta) {
+                m_dCWndSize -= m_dLinearIncreaseFactor;
+            } // if
+        } // if
+        m_dAckedSegments -= windowAtSample;
+        if (m_dAckedSegments < 0.0) {
+            m_dAckedSegments = 0.0;
         } // if
 
         // Complete your implementation above this line
@@ -159,6 +186,9 @@ class Vegas : public CCC {
     double m_dAlpha;
     double m_dBeta;
     double m_dLinearIncreaseFactor;
+    double m_dAckedSegments;
+    bool m_bHaveLastAck;
+    int32_t m_iLastAckNumber;
 
     // Complete your implementation above this line
     // *************************************************************************
