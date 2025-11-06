@@ -58,7 +58,7 @@ class Vegas : public CCC {
 
         m_dAlpha = 2.0;
         m_dBeta = 4.0;
-        m_dLinearIncreaseFactor = 1.0;
+        m_dLinearIncreaseFactor = 4.0;
         m_dAckedSegments = 0.0;
         m_bHaveLastAck = false;
         m_iLastAckNumber = 0;
@@ -128,7 +128,10 @@ class Vegas : public CCC {
             return;
         } // if
 
-        const int ackAdvance = ack - m_iLastAckNumber;
+        int ackAdvance = ack - m_iLastAckNumber;
+        if (ackAdvance < 0) {
+            ackAdvance = 0;
+        }
         m_iLastAckNumber = ack;
 
         if (ackAdvance <= 0) {
@@ -148,9 +151,11 @@ class Vegas : public CCC {
         if (m_dCurrentRTT > 0.0 && m_dBaseRTT > 0.0) {
             const double diff = (windowAtSample * (m_dCurrentRTT - m_dBaseRTT)) / m_dCurrentRTT;
             if (diff < m_dAlpha) {
-                m_dCWndSize += m_dLinearIncreaseFactor;
+                const double step = 1.0 + ((m_dAlpha - diff) / m_dAlpha) * m_dLinearIncreaseFactor;
+                m_dCWndSize += step;
             } else if (diff > m_dBeta) {
-                m_dCWndSize -= m_dLinearIncreaseFactor;
+                const double step = 1.0 + ((diff - m_dBeta) / m_dBeta) * m_dLinearIncreaseFactor;
+                m_dCWndSize -= step;
             } // if
         } // if
         m_dAckedSegments -= windowAtSample;
